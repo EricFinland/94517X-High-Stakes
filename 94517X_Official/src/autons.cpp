@@ -1,16 +1,17 @@
 #include "main.h" // IWYU pragma: keep
+#include "subsystems.hpp"
 #include "team_color.hpp" // IWYU pragma: keep
 #include "color_sorter.hpp" // IWYU pragma: keep
+#include "team_color.hpp" // IWYU pragma: keep
 
-/////
-// For installation, upgrading, documentations, and tutorials, check out our website!
-// https://ez-robotics.github.io/EZ-Template/
-/////
+
 
 // These are out of 127
-const int DRIVE_SPEED = 127;
-const int TURN_SPEED = 127;
-const int SWING_SPEED = 120;
+const int DRIVE_SPEED = 110;
+const int TURN_SPEED = 110;
+const int SWING_SPEED = 100;
+
+const int SKILLS_DRIVE = 110;
 
 ///
 // Constants
@@ -19,7 +20,7 @@ void default_constants() {
   // P, I, D, and Start I
   chassis.pid_drive_constants_set(20.0, 0.0, 100.0);         // Fwd/rev constants, used for odom and non odom motions
   chassis.pid_heading_constants_set(11.0, 0.0, 20.0);        // Holds the robot straight while going forward without odom
-  chassis.pid_turn_constants_set(3.0, 0.05, 20.0, 15.0);     // Turn in place constants
+  chassis.pid_turn_constants_set(3.0, 0.05, 22.0, 15.0);     // Turn in place constants
   chassis.pid_swing_constants_set(6.0, 0.0, 65.0);           // Swing constants
   chassis.pid_odom_angular_constants_set(6.5, 0.0, 52.5);    // Angular control for odom motions
   chassis.pid_odom_boomerang_constants_set(5.8, 0.0, 32.5);  // Angular control for boomerang motions
@@ -30,13 +31,14 @@ void default_constants() {
   chassis.pid_drive_exit_condition_set(90_ms, 1_in, 250_ms, 3_in, 500_ms, 500_ms);
   chassis.pid_odom_turn_exit_condition_set(90_ms, 3_deg, 250_ms, 7_deg, 500_ms, 750_ms);
   chassis.pid_odom_drive_exit_condition_set(90_ms, 1_in, 250_ms, 3_in, 500_ms, 750_ms);
-  chassis.pid_turn_chain_constant_set(3_deg);
+
+  chassis.pid_turn_chain_constant_set(1.5_deg);
   chassis.pid_swing_chain_constant_set(5_deg);
-  chassis.pid_drive_chain_constant_set(3_in);
+  chassis.pid_drive_chain_constant_set(2_in);
 
   // Slew constants
   chassis.slew_turn_constants_set(3_deg, 70);
-  chassis.slew_drive_constants_set(3_in, 70);
+  chassis.slew_drive_constants_set(10_in, 70);
   chassis.slew_swing_constants_set(3_in, 80);
 
   // The amount that turns are prioritized over driving in odom motions
@@ -47,25 +49,14 @@ void default_constants() {
   chassis.odom_boomerang_distance_set(16_in);  // This sets the maximum distance away from target that the carrot point can be
   chassis.odom_boomerang_dlead_set(0.625);     // This handles how aggressive the end of boomerang motions are
 
-  chassis.pid_angle_behavior_set(ez::shortest);  // Changes the default behavior for turning, this defaults it to the shortest path there
+  chassis.pid_angle_behavior_set(ez::shortest);
+
+  chassis.slew_drive_set(true); 
+
+
 }
 
 
-void autonRed() {
-    TeamColor::isRedTeam = true; // Set the team color to red, true for red
-    ColorSorter::startSortingTask(); 
-    Intake.move(127);
-
-    pros::delay(30000);
-    
-    Intake.move(0);
-    // Autonomous actions for red team
-}
-
-void autonBlue() {
-    TeamColor::isRedTeam = false; // Set the team color to blue, false for blue
-    // Autonomous actions for blue team
-}
 
 ///
 //Functions
@@ -86,54 +77,123 @@ void autonBlue() {
 
 
 ///
-// Drive Example
+// Red Negative Pole Touch
 ///
 void Negative_side() {
+  TeamColor::isRedTeam = true; // Set the team color to red, true for red
+  Rotation.set_position(11);
+
+  chassis.pid_turn_set(-45_deg, TURN_SPEED);
+  liftPID.target_set(185);
+  chassis.pid_wait_quick_chain();
+  lift_wait();
 
 
+  chassis.pid_swing_set(ez::RIGHT_SWING, 0_deg, 100, 60);
+  chassis.pid_wait_quick_chain();
+
+  chassis.pid_drive_set(-18_in, 60);  
+  chassis.pid_wait_until(-10_in);
+  liftPID.target_set(-20);
+  Mogo.set(true);
+  chassis.pid_wait_quick_chain();
+  lift_wait();
+
+  chassis.pid_turn_set(135_deg, TURN_SPEED);
+  chassis.pid_wait_quick_chain();
+  ColorSorter::setIntakeSpeed(127);
+
+  chassis.pid_swing_set(ez::RIGHT_SWING, 90_deg, 90, 40);//swing ihto rings
+  chassis.pid_wait_quick_chain();
+
+  chassis.pid_drive_set(17_in, 100);  
+  chassis.pid_wait_quick_chain();
+
+  chassis.pid_drive_set(-10_in, 100);  
+  chassis.pid_wait_quick_chain();
+
+  chassis.pid_swing_set(ez::RIGHT_SWING, 110_deg, 100, 30);
+  chassis.pid_wait_quick_chain();
+
+  chassis.pid_turn_set(45_deg, TURN_SPEED);
+  chassis.pid_wait_quick_chain();
+
+  chassis.pid_drive_set(20_in, 100);  
+  chassis.pid_wait_quick_chain();
+
+  pros::delay(1000);
+   ColorSorter::setIntakeSpeed(0);
 }
 
 ///
-// Turn Example
+// Blue Negative Pole Touch
 ///
 void Negative_side_2() {
+  TeamColor::isRedTeam = false; // Set the team color to red, true for red
+
+
+// Drive forward to (0, 36) forward
+chassis.pid_odom_set({{10_in, 36_in}, fwd, 110});
+chassis.pid_wait();
+
+// Drive back to (0, 0) forward
+chassis.pid_odom_set({{0_in, 0_in}, fwd, 110});
+chassis.pid_wait();
+
+// Drive forward to (0, 36) backward
+chassis.pid_odom_set({{10, 36}, rev, 110});
+chassis.pid_wait();
+
+// Drive back to (0, 0) backward
+chassis.pid_odom_set({{0, 0}, rev, 110});
+chassis.pid_wait();
+
+
 
 }
 
 ///
-// Combining Turn + Drive
+// Red Positive Simple
 ///
 void Positive_side() {
+  TeamColor::isRedTeam = true; // Set the team color to blue, false for blue
+
 
 }
-
 ///
-// Wait Until and Changing Max Speed
+// Blue Poisitve simple
 ///
 void Positive_side_2() {
+  TeamColor::isRedTeam = false; // Set the team color to blue, false for blue
 
-
+ 
 }
 
 ///
 // Swing Example
 ///
 void Skills() {
+  TeamColor::isRedTeam = true;
+
+
+
 
 }
 
 ///
-// Motion Chaining
+// Rush Blue
 ///
 void motion_chaining() {
-
+  TeamColor::isRedTeam = false; 
 
 }
 
 ///
-// Auto that tests everything
+// Rush Red
 ///
 void combining_movements() {
+  TeamColor::isRedTeam = false; 
+
 
 }
 

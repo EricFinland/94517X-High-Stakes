@@ -5,6 +5,12 @@
 #include "pros/motors.hpp" // IWYU pragma: keep
 
 namespace ColorSorter {
+    extern int IntakeSpeed;
+
+
+    // Declare functions
+    void setIntakeSpeed(int speed);
+    void colorSortLogic();
     void startSortingTask();
     void stopSortingTask();
 }

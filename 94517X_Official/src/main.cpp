@@ -1,15 +1,24 @@
 #include "main.h" // IWYU pragma: keep
 #include "clamp.hpp" // IWYU pragma: keep
+#include "pros/abstract_motor.hpp"// IWYU pragma: keep
+#include "pros/llemu.hpp" // IWYU pragma: keep
+#include "pros/misc.h" // IWYU pragma: keep
+#include "pros/motors.h" // IWYU pragma: keep
+#include "subsystems.hpp" // IWYU pragma: keep
 #include "team_color.hpp"  // IWYU pragma: keep
+#include "color_sorter.hpp" // IWYU pragma: keep
+
+
+
 
 
 // Chassis constructor
 ez::Drive chassis(
     // These are your drive motors, the first motor is used for sensing!
-    {1, 2, 3},     // Left Chassis Ports (negative port will reverse it!)
-    {-4, -5, -6},  // Right Chassis Ports (negative port will reverse it!)
+    {-20, -19, 18},     // Left Chassis Ports (negative port will reverse it!)
+    {11, 12, -13},  // Right Chassis Ports (negative port will reverse it!)
 
-    7,      // IMU Port
+    10,      // IMU Port
     3.25,  // Wheel Diameter (Remember, 4" wheels without screw holes are actually 4.125!)
     480);   // Wheel RPM = cartridge * (motor gear / wheel gear)
 
@@ -18,7 +27,7 @@ ez::Drive chassis(
 //  `4.0` is the distance from the center of the wheel to the center of the robot
 // ez::tracking_wheel right_tracker({-'A', -'B'}, 2.75, 4.0);  // ADI Encoders
 // ez::tracking_wheel left_tracker(1, {'C', 'D'}, 2.75, 4.0);  // ADI Encoders plugged into a Smart port
-// ez::tracking_wheel horiz_tracker(1, 2.75, 4.0);             // Rotation sensors
+ez::tracking_wheel horiz_tracker(8, 2, 2.0); // Rotation sensors
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -30,17 +39,26 @@ void initialize() {
   // Print our branding over your terminal :D
   ez::ez_template_print();
   ClampSystem::initialize(); //Mogo Clamp
+
+  ColorSorter::startSortingTask();
+  
   Color.set_led_pwm(100);
+  //Rotation.reset();
+  //Rotation.set_position(1);
+  //liftPID.exit_condition_set(80, 50, 300, 150, 500, 500);
+  pros::delay(1000);  // Stop the user from doing anything while legacy ports configure
 
-  pros::delay(100);  // Stop the user from doing anything while legacy ports configure
-
+  
   // Are you using tracking wheels?  Comment out which ones you're using here!
   // chassis.odom_tracker_right_set(&right_tracker);
   // chassis.odom_tracker_left_set(&left_tracker);
   // chassis.odom_tracker_back_set(&horiz_tracker);  // Replace `back` to `front` if your tracker is in the front!
 
+
+
+
   // Configure your chassis controls
-  chassis.opcontrol_curve_buttons_toggle(true);   // Enables modifying the controller curve with buttons on the joysticks
+  chassis.opcontrol_curve_buttons_toggle(false);   // Enables modifying the controller curve with buttons on the joysticks
   chassis.opcontrol_drive_activebrake_set(0.0);   // Sets the active brake kP. We recommend ~2.  0 will disable.
   //chassis.opcontrol_curve_default_set(0.0, 0.0);  // Defaults for curve. If using tank, only the first parameter is used. (Comment this line out if you have an SD card!)
 
@@ -53,15 +71,13 @@ void initialize() {
 
   // Autonomous Selector using LLEMU
   ez::as::auton_selector.autons_add({
-      {"Negative Side Auton", Negative_side},
-      {"Negative Side Auton Number 2", Negative_side_2},
-      {"Positive Side Auton", Positive_side},
-      {"Positive Side Auton Number 2", Positive_side_2},
+      {"Negative Side Red", Negative_side},
+      {"Negative Side Blue", Negative_side_2},
+      {"Red Positive Simple", Positive_side},
+      {"Blue Poisitve simple", Positive_side_2},
       {"Skills Autonomous", Skills},
-      {"Red Test", autonRed},
-      {"Blue Test", autonBlue},
-      {"Motion Chaining\n\nDrive forward, turn, and come back, but blend everything together :D", motion_chaining},
-      {"Combine all 3 movements", combining_movements},
+      {"Rush Auto BLUE\n\nRushing The middle mogo Blue Side :D", motion_chaining},
+      {"Rush Reds", combining_movements},
       {"Interference\n\nAfter driving forward, robot performs differently if interfered or not", interfered_example},
       {"Simple Odom\n\nThis is the same as the drive example, but it uses odom instead!", odom_drive_example},
       {"Pure Pursuit\n\nGo to (0, 30) and pass through (6, 10) on the way.  Come back to (0, 0)", odom_pure_pursuit_example},
@@ -74,8 +90,24 @@ void initialize() {
   // Initialize chassis and auton selector
   chassis.initialize();
   ez::as::initialize();
-  master.rumble(chassis.drive_imu_calibrated() ? "." : "---");
+  master.rumble(chassis.drive_imu_calibrated() ? "." : ".");
 }
+
+
+void lift_task() {
+  pros::delay(2000);  // Set EZ-Template calibrate before this function starts running
+  while (true) {
+    int armp = Rotation.get_position()/100;
+    set_lift(liftPID.compute(armp));
+
+    pros::delay(ez::util::DELAY_TIME);
+  }
+}
+
+pros::Task Lift_Task(lift_task); 
+
+
+int DriverHappened = 0;
 
 /**
  * Runs while the robot is in the disabled state of Field Management System or
@@ -83,6 +115,11 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {
+  Lift_Task.suspend();
+
+
+
+
   // . . .
 }
 
@@ -116,6 +153,8 @@ void autonomous() {
   chassis.drive_sensor_reset();               // Reset drive sensors to 0
   chassis.odom_xyt_set(0_in, 0_in, 0_deg);    // Set the current position, you can start at a specific position with this
   chassis.drive_brake_set(MOTOR_BRAKE_HOLD);  // Set motors to hold.  This helps autonomous consistency
+  Lift_Task.resume();
+
 
   /*
   Odometry and Pure Pursuit are not magic
@@ -129,8 +168,8 @@ void autonomous() {
   You can do cool curved motions, but you have to give your robot the best chance
   to be consistent
   */
-
-  ez::as::auton_selector.selected_auton_call();  // Calls selected auton from autonomous selector
+  //selector.run_auton();
+ez::as::auton_selector.selected_auton_call();  // Calls selected auton from autonomous selector
 }
 
 /**
@@ -162,7 +201,7 @@ void ez_screen_task() {
           // Display X, Y, and Theta
           ez::screen_print("x: " + util::to_string_with_precision(chassis.odom_x_get()) +
                                "\ny: " + util::to_string_with_precision(chassis.odom_y_get()) +
-                               "\na: " + util::to_string_with_precision(chassis.odom_theta_get()),
+                               "\nAngle: " + util::to_string_with_precision(chassis.odom_theta_get()),
                            1);  // Don't override the top Page line
 
           // Display all trackers that are being used
@@ -197,7 +236,6 @@ void ez_template_extras() {
   if (!pros::competition::is_connected()) {
     // PID Tuner
     // - after you find values that you're happy with, you'll have to set them in auton.cpp
-
     // Enable / Disable PID Tuner
     //  When enabled:
     //  * use A and Y to increment / decrement the constants
@@ -206,7 +244,7 @@ void ez_template_extras() {
       chassis.pid_tuner_toggle();
 
     // Trigger the selected autonomous routine
-    if (master.get_digital(DIGITAL_B) && master.get_digital(DIGITAL_DOWN)) {
+    if (master.get_digital(DIGITAL_B) ) {
       pros::motor_brake_mode_e_t preference = chassis.drive_brake_get();
       autonomous();
       chassis.drive_brake_set(preference);
@@ -227,42 +265,83 @@ void ez_template_extras() {
 void opcontrol() {
   // This is preference to what you like to drive on
   chassis.drive_brake_set(MOTOR_BRAKE_COAST);
+  LadyBrown.set_brake_mode(MOTOR_BRAKE_HOLD);
 
-
+  Intake1.set_brake_mode(MOTOR_BRAKE_COAST);
+  Intake2.set_brake_mode(MOTOR_BRAKE_COAST);
   if (TeamColor::isRedTeam) {
     // Robot is on the red team
-    pros::lcd::set_text(1, "We are on the RED team!");
+
+    pros::lcd::set_text(5, "RED team!");
+    master.print(1, 1, "RED team!");
   } else {
     // Robot is on the blue team
-    pros::lcd::set_text(1, "We are on the BLUE team!");
+    pros::lcd::set_text(5, "BLUE team!");
+    master.print(1, 1, "BLUE team!");
   }
+  //ColorSorter::startSortingTask();
+  Lift_Task.suspend();   
+
+    int directSpeed = 0;
+    int pidOutput = 0;
+
 
 
   while (true) {
     // Gives you some extras to make EZ-Template ezier
     ez_template_extras();
 
-    chassis.opcontrol_tank();  // Tank control
+    //chassis.opcontrol_tank();  // Tank control
     // chassis.opcontrol_arcade_standard(ez::SPLIT);   // Standard split arcade
     // chassis.opcontrol_arcade_standard(ez::SINGLE);  // Standard single arcade
-    // chassis.opcontrol_arcade_flipped(ez::SPLIT);    // Flipped split arcade
+    chassis.opcontrol_arcade_flipped(ez::SPLIT);    // Flipped split arcade
     // chassis.opcontrol_arcade_flipped(ez::SINGLE);   // Flipped single arcade
 
     ClampSystem::update();
 
-    if (master.get_digital(DIGITAL_RIGHT)){
+
+    if (master.get_digital(DIGITAL_UP)) {
+      liftPID.target_set(10);
+    }
+    if (master.get_digital(DIGITAL_DOWN)) {
+      liftPID.target_set(-10);
+    }
+    if (master.get_digital(DIGITAL_L2)) {
+      liftPID.target_set(160);
+    }
+  if (master.get_digital(DIGITAL_LEFT)) {
+      liftPID.target_set(275);
+    }
+    int armpos = Rotation.get_position() / 100;
+
+    set_lift(liftPID.compute(armpos));
+
+    pros::lcd::print(7, "Arm position: %i!", armpos);
+
+    //console.printf("Arm Position: %i\n", armpos);
+
+    if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)){
+      TeamColor::isRedTeam = !TeamColor::isRedTeam;
+    }
+
+        if (TeamColor::isRedTeam) {
+          // Robot is on the red team
+          pros::lcd::set_text(3, "RED team!");
+          master.set_text(1, 1, "RED team!");
+
+        } else {
+          // Robot is on the blue team
+          pros::lcd::set_text(3, "BLUE team!");
+          master.set_text(1, 1, "BLUE team!");
+        }
+
+
+    if (master.get_digital_new_press(DIGITAL_RIGHT)){
       Doinker.set(!Doinker.get());
     }
-
-    if (master.get_digital_new_press(DIGITAL_R1)) {
-      Intake.move(127);
-    }else if (master.get_digital_new_press(DIGITAL_R2)){
-      Intake.move(-127);
-    }else {
-      Intake.move(0);
+    if (master.get_digital_new_press(DIGITAL_A)) {
+      IntakeLift.set(!IntakeLift.get());
     }
-
-
     pros::delay(ez::util::DELAY_TIME);  // This is used for timer calculations!  Keep this ez::util::DELAY_TIME
   }
 }
