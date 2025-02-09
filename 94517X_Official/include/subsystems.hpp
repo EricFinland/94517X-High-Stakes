@@ -20,6 +20,9 @@ inline pros::Motor Intake(17);
 inline pros::Motor Intake1(1);
 inline pros::Motor Intake2(-2);
 
+inline pros::Motor IntakeS1(-9);
+inline pros::Motor IntakeS2(7);
+
 inline pros::Motor LadyBrown(-17);
 //inline pros::MotorGroup LadyBrown({2,-3});
 
@@ -42,7 +45,7 @@ inline void set_lift(int input){
 }
 
 
-inline ez::PID liftPID{5, 0, 25, 0, "LadyBrown"};
+inline ez::PID liftPID{2, 0, 7, 0, "LadyBrown"};
 
 inline void lift_wait() {
   while (liftPID.exit_condition(LadyBrown, true) == ez::RUNNING) {

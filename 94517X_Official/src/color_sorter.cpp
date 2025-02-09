@@ -12,79 +12,77 @@
 #define HUE_RED_MAX 30
 #define HUE_RED_MIN_ALT 0
 #define HUE_RED_MAX_ALT 359
-#define DISTANCE_THRESHOLD 100
+#define DISTANCE_THRESHOLD 80 // Ensure this is correctly set
 
 // Ring tracking queue
 std::queue<int> RingQueue; // 0 = red, 1 = blue
 
 // State variables
-
-
 namespace ColorSorter {
 int IntakeSpeed = 0;
+bool sortingTaskActive = false;
 
-    
 void setIntakeSpeed(int speed) {
     IntakeSpeed = speed; // Update global intake speed variable
     Intake1.move(IntakeSpeed);
     Intake2.move(IntakeSpeed);
+    IntakeS1.move(IntakeSpeed);
+    IntakeS2.move(IntakeSpeed);
+
 }
 
-
+void setIntakeFront(int speeds) {
+    IntakeSpeed = speeds;
+    Intake1.move(IntakeSpeed);
+}
 
 void colorSortLogic() {
     int teamColor = TeamColor::isRedTeam ? 0 : 1; // 0 = red, 1 = blue
 
     while (true) {
-        // Only update intake speed if the driver is manually pressing a button
-        /*
-        if (!pros::competition::is_autonomous()) {
-        if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
-            setIntakeSpeed(127);
-        } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
-            setIntakeSpeed(-127);
-        }else {
-            setIntakeSpeed(0);
-        }
-        }*/
 
-    Intake1.move(IntakeSpeed);
-    Intake2.move(IntakeSpeed);
+
+        // Detect color
+        double hueValue = Color.get_hue();
+        int detectedColor = -1; 
+
+        if (hueValue >= HUE_BLUE_MIN && hueValue <= HUE_BLUE_MAX) {
+            detectedColor = 1; // Blue detected
+
+        } else if ((hueValue >= HUE_RED_MIN && hueValue <= HUE_RED_MAX) || 
+                   (hueValue >= HUE_RED_MIN_ALT && hueValue <= HUE_RED_MAX_ALT)) {
+            detectedColor = 0; // Red detected
+
+        } 
+
+        // Add detected color to queue
+        if (detectedColor != -1) {
+            if (RingQueue.size() < 3) {
+                RingQueue.push(detectedColor);
+            } else {
+                RingQueue.pop();
+                RingQueue.push(detectedColor);
+            }
+        }
+
+        // Get distance
+        int distance = DistanceColor.get_distance();
+
 
         // Sorting Logic
-        if (IntakeSpeed >= 100) { 
-            double hueValue = Color.get_hue();
-            int detectedColor = -1; 
+        if (distance < DISTANCE_THRESHOLD && !RingQueue.empty()) {
+            int ringToSort = RingQueue.front();
+            RingQueue.pop();
 
-            if (hueValue >= HUE_BLUE_MIN && hueValue <= HUE_BLUE_MAX) {
-                detectedColor = 1; // Blue detected
-            } else if ((hueValue >= HUE_RED_MIN && hueValue <= HUE_RED_MAX) || 
-                       (hueValue >= HUE_RED_MIN_ALT && hueValue <= HUE_RED_MAX_ALT)) {
-                detectedColor = 0; // Red detected
-            }
+            if (ringToSort != teamColor) { // If ring is wrong color, eject it
 
-            // If a valid color is detected, add it to the queue
-            if (detectedColor != -1) {
-                if (RingQueue.size() < 3) {
-                    RingQueue.push(detectedColor);
-                } else {
-                    RingQueue.pop();
-                    RingQueue.push(detectedColor);
-                }
-            }
 
-            // Distance sensor detects a ring
-            int distance = DistanceColor.get_distance();
-            if (distance < DISTANCE_THRESHOLD && !RingQueue.empty()) {
-                int ringToSort = RingQueue.front();
-                RingQueue.pop();
+                pros::delay(80);   // Allow time for motor to sto0
+                setIntakeSpeed(-127); // Reverse intake to eject
+                pros::delay(100);    // Hold reverse longer
 
-                if (ringToSort != teamColor) { // If the ring is the "bad color," sort it
-                    pros::delay(70); 
-                    setIntakeSpeed(-127); // Reverse intake to eject
-                    pros::delay(100); 
-                    setIntakeSpeed(127); // Resume normal intake
-                }
+                setIntakeSpeed(127); // Resume normal intake
+
             }
         }
 
@@ -93,11 +91,16 @@ void colorSortLogic() {
 }
 
 
+// Start Sorting Task
 void startSortingTask() {
+    if (!sortingTaskActive) {
+        sortingTaskActive = true;
         pros::Task colorSorterTask(colorSortLogic);
+    }
 }
 
+// Stop Sorting Task
 void stopSortingTask() {
-    //sortingTaskActive = false;
+    sortingTaskActive = false;
 }
 }

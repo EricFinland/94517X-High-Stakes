@@ -1,4 +1,5 @@
 #include "main.h" // IWYU pragma: keep
+#include "autons.hpp"
 #include "clamp.hpp" // IWYU pragma: keep
 #include "pros/abstract_motor.hpp"// IWYU pragma: keep
 #include "pros/llemu.hpp" // IWYU pragma: keep
@@ -18,7 +19,7 @@ ez::Drive chassis(
     {-20, -19, 18},     // Left Chassis Ports (negative port will reverse it!)
     {11, 12, -13},  // Right Chassis Ports (negative port will reverse it!)
 
-    10,      // IMU Port
+    8,      // IMU Port
     3.25,  // Wheel Diameter (Remember, 4" wheels without screw holes are actually 4.125!)
     480);   // Wheel RPM = cartridge * (motor gear / wheel gear)
 
@@ -27,7 +28,7 @@ ez::Drive chassis(
 //  `4.0` is the distance from the center of the wheel to the center of the robot
 // ez::tracking_wheel right_tracker({-'A', -'B'}, 2.75, 4.0);  // ADI Encoders
 // ez::tracking_wheel left_tracker(1, {'C', 'D'}, 2.75, 4.0);  // ADI Encoders plugged into a Smart port
-ez::tracking_wheel horiz_tracker(8, 2, 2.0); // Rotation sensors
+//ez::tracking_wheel horiz_tracker(-8, 2, 2.0); // Rotation sensors
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -37,11 +38,12 @@ ez::tracking_wheel horiz_tracker(8, 2, 2.0); // Rotation sensors
  */
 void initialize() {
   // Print our branding over your terminal :D
+  LadyBrown.tare_position();
   ez::ez_template_print();
   ClampSystem::initialize(); //Mogo Clamp
-
+  LadyBrown.set_brake_mode(MOTOR_BRAKE_HOLD);
   ColorSorter::startSortingTask();
-  
+  //LadyBrown.set_brake_mode(MOTOR_BRAKE_HOLD);
   Color.set_led_pwm(100);
   //Rotation.reset();
   //Rotation.set_position(1);
@@ -52,7 +54,7 @@ void initialize() {
   // Are you using tracking wheels?  Comment out which ones you're using here!
   // chassis.odom_tracker_right_set(&right_tracker);
   // chassis.odom_tracker_left_set(&left_tracker);
-  // chassis.odom_tracker_back_set(&horiz_tracker);  // Replace `back` to `front` if your tracker is in the front!
+   //chassis.odom_tracker_back_set(&horiz_tracker);  // Replace `back` to `front` if your tracker is in the front!
 
 
 
@@ -73,18 +75,13 @@ void initialize() {
   ez::as::auton_selector.autons_add({
       {"Negative Side Red", Negative_side},
       {"Negative Side Blue", Negative_side_2},
-      {"Red Positive Simple", Positive_side},
-      {"Blue Poisitve simple", Positive_side_2},
+      {"Blue Positive ", Positive_side},
+      {"Red Poisitve simple Alliance stake Pos side", Positive_side_2},
       {"Skills Autonomous", Skills},
       {"Rush Auto BLUE\n\nRushing The middle mogo Blue Side :D", motion_chaining},
       {"Rush Reds", combining_movements},
-      {"Interference\n\nAfter driving forward, robot performs differently if interfered or not", interfered_example},
-      {"Simple Odom\n\nThis is the same as the drive example, but it uses odom instead!", odom_drive_example},
-      {"Pure Pursuit\n\nGo to (0, 30) and pass through (6, 10) on the way.  Come back to (0, 0)", odom_pure_pursuit_example},
-      {"Pure Pursuit Wait Until\n\nGo to (24, 24) but start running an intake once the robot passes (12, 24)", odom_pure_pursuit_wait_until_example},
-      {"Boomerang\n\nGo to (0, 24, 45) then come back to (0, 0, 0)", odom_boomerang_example},
-      {"Boomerang Pure Pursuit\n\nGo to (0, 24, 45) on the way to (24, 24) then come back to (0, 0, 0)", odom_boomerang_injected_pure_pursuit_example},
-      {"Measure Offsets\n\nThis will turn the robot a bunch of times and calculate your offsets for your tracking wheels.", odom_boomerang_injected_pure_pursuit_example},
+      {"SoloAWPRED", SoloAWPRed},
+      {"SOLO AWP Blue", SoloAWPBlue},
   });
 
   // Initialize chassis and auton selector
@@ -222,7 +219,7 @@ void ez_screen_task() {
     pros::delay(ez::util::DELAY_TIME);
   }
 }
-pros::Task ezScreenTask(ez_screen_task);
+//pros::Task ezScreenTask(ez_screen_task);
 
 /**
  * Gives you some extras to run in your opcontrol:
@@ -240,8 +237,7 @@ void ez_template_extras() {
     //  When enabled:
     //  * use A and Y to increment / decrement the constants
     //  * use the arrow keys to navigate the constants
-    if (master.get_digital_new_press(DIGITAL_X))
-      chassis.pid_tuner_toggle();
+
 
     // Trigger the selected autonomous routine
     if (master.get_digital(DIGITAL_B) ) {
@@ -266,7 +262,7 @@ void opcontrol() {
   // This is preference to what you like to drive on
   chassis.drive_brake_set(MOTOR_BRAKE_COAST);
   LadyBrown.set_brake_mode(MOTOR_BRAKE_HOLD);
-
+  ColorSorter::startSortingTask();
   Intake1.set_brake_mode(MOTOR_BRAKE_COAST);
   Intake2.set_brake_mode(MOTOR_BRAKE_COAST);
   if (TeamColor::isRedTeam) {
@@ -299,18 +295,25 @@ void opcontrol() {
 
     ClampSystem::update();
 
+        if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+          ColorSorter::setIntakeSpeed(127);
+        } else if (master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)) {
+          ColorSorter::setIntakeSpeed(-127);
+        }else {
+          ColorSorter::setIntakeSpeed(0);
+        }
 
     if (master.get_digital(DIGITAL_UP)) {
-      liftPID.target_set(10);
+      liftPID.target_set(25);
     }
     if (master.get_digital(DIGITAL_DOWN)) {
-      liftPID.target_set(-10);
+      liftPID.target_set(-2);
     }
     if (master.get_digital(DIGITAL_L2)) {
-      liftPID.target_set(160);
+      liftPID.target_set(150);
     }
   if (master.get_digital(DIGITAL_LEFT)) {
-      liftPID.target_set(275);
+      liftPID.target_set(300);
     }
     int armpos = Rotation.get_position() / 100;
 
@@ -326,12 +329,12 @@ void opcontrol() {
 
         if (TeamColor::isRedTeam) {
           // Robot is on the red team
-          pros::lcd::set_text(3, "RED team!");
+          pros::lcd::set_text(5, "RED team!");
           master.set_text(1, 1, "RED team!");
 
         } else {
           // Robot is on the blue team
-          pros::lcd::set_text(3, "BLUE team!");
+          pros::lcd::set_text(5, "BLUE team!");
           master.set_text(1, 1, "BLUE team!");
         }
 

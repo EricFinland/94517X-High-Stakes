@@ -30,8 +30,8 @@ namespace ClampSystem {
 
         // Get the distance sensor value
         double distance = DistanceSensor.get(); // Get distance in mm
-        mogoDetected = (distance < 20); // Mogo detected within 20mm
-        bool mogoOutOfRange = (distance > 40); // Mogo fully left beyond 40mm
+        mogoDetected = (distance < 14); // Mogo detected within 20mm
+        bool mogoOutOfRange = (distance > 30); // Mogo fully left beyond 40mm
 
         // Track if a mogo has fully left before allowing a new one to be clamped
         if (mogoOutOfRange) {

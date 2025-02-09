@@ -6,10 +6,11 @@
 
 namespace ColorSorter {
     extern int IntakeSpeed;
-
+    
 
     // Declare functions
     void setIntakeSpeed(int speed);
+    void setIntakeFront(int speeds);
     void colorSortLogic();
     void startSortingTask();
     void stopSortingTask();

@@ -18,3 +18,5 @@ void odom_boomerang_injected_pure_pursuit_example();
 void measure_offsets();
 void autonRed();
 void autonBlue();
+void SoloAWPRed();
+void SoloAWPBlue();
